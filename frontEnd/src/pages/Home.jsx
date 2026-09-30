@@ -36,10 +36,7 @@ export default function Home() {
         setRoadmaps(response.data.roadmaps);
         setStats(response.data.stats);
       } catch (error) {
-        setError(
-          error.response?.data?.message ||
-            "Failed to load roadmaps.",
-        );
+        setError(error.response?.data?.message || "Failed to load roadmaps.");
       } finally {
         setLoading(false);
       }
@@ -69,9 +66,7 @@ export default function Home() {
       await api.delete(`/roadmaps/${deleteRoadmap.id}`);
 
       setRoadmaps((prevRoadmaps) =>
-        prevRoadmaps.filter(
-          (roadmap) => roadmap.id !== deleteRoadmap.id,
-        ),
+        prevRoadmaps.filter((roadmap) => roadmap.id !== deleteRoadmap.id),
       );
 
       setStats((prevStats) => ({
@@ -81,10 +76,7 @@ export default function Home() {
 
       setDeleteRoadmap(null);
     } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to delete roadmap.",
-      );
+      setError(error.response?.data?.message || "Failed to delete roadmap.");
     } finally {
       setDeleteLoading(false);
     }
@@ -100,9 +92,7 @@ export default function Home() {
 
       if (exists) {
         return prevRoadmaps.map((roadmap) =>
-          roadmap.id === savedRoadmap.id
-            ? savedRoadmap
-            : roadmap,
+          roadmap.id === savedRoadmap.id ? savedRoadmap : roadmap,
         );
       }
 
@@ -136,9 +126,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-
         {/* Top */}
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-xl font-bold tracking-tight text-slate-900">
@@ -156,7 +144,6 @@ export default function Home() {
         {/* Hero */}
         <section className="mb-8 overflow-hidden rounded-3xl bg-gradient-to- from-indigo-50 to-blue-50 p-6 sm:p-7 lg:p-10">
           <div className="max-w-2xl">
-
             <span className="mb-4 inline-block rounded-full bg-indigo-100 px-4 py-2 text-xs font-semibold text-indigo-600">
               Welcome back 👋
             </span>
@@ -166,87 +153,52 @@ export default function Home() {
             </h2>
 
             <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500 sm:text-base">
-              Explore your roadmaps, track your progress, and
-              achieve your goals step by step.
+              Explore your roadmaps, track your progress, and achieve your goals
+              step by step.
             </p>
 
             <p className="mt-3 max-w-xl text-sm font-bold leading-6 text-red-600 sm:text-base">
               Dont Forget The Person You Want To Become
             </p>
-
           </div>
         </section>
 
         {/* Stats */}
         <section className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">
-              Total Roadmaps
-            </p>
+            <p className="text-sm text-slate-500">Total Roadmaps</p>
 
             <p className="mt-2 text-3xl font-bold text-slate-900">
               {stats.total}
             </p>
 
-            <p className="mt-2 text-xs text-slate-400">
-              Available roadmaps
-            </p>
+            <p className="mt-2 text-xs text-slate-400">Available roadmaps</p>
           </div>
-
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">
-              My Roadmaps
-            </p>
-
-            <p className="mt-2 text-3xl font-bold text-slate-900">
-              {stats.total}
-            </p>
-
-            <p className="mt-2 text-xs text-slate-400">
-              Created by you
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">
-              Completed
-            </p>
-
-            <p className="mt-2 text-3xl font-bold text-slate-900">
-              {stats.completed}
-            </p>
-
-            <p className="mt-2 text-xs text-slate-400">
-              Finished roadmaps
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">
-              In Progress
-            </p>
+            <p className="text-sm text-slate-500">In Progress</p>
 
             <p className="mt-2 text-3xl font-bold text-slate-900">
               {stats.in_progress}
             </p>
 
-            <p className="mt-2 text-xs text-slate-400">
-              Ongoing roadmaps
-            </p>
+            <p className="mt-2 text-xs text-slate-400">Ongoing roadmaps</p>
           </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-sm text-slate-500">Completed</p>
 
+            <p className="mt-2 text-3xl font-bold text-slate-900">
+              {stats.completed}
+            </p>
+
+            <p className="mt-2 text-xs text-slate-400">Finished roadmaps</p>
+          </div>
         </section>
 
         {/* Roadmaps */}
         <section>
-
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">
-                My Roadmaps
-              </h2>
+              <h2 className="text-2xl font-bold text-slate-900">My Roadmaps</h2>
 
               <p className="mt-1 text-sm text-slate-500">
                 Continue your learning journey.
@@ -262,11 +214,9 @@ export default function Home() {
             >
               + New Roadmap
             </button>
-
           </div>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-
             {roadmaps.map((roadmap) => (
               <Card
                 key={roadmap.id}
@@ -280,16 +230,11 @@ export default function Home() {
                   setSelectedRoadmap(roadmap);
                   setShowModal(true);
                 }}
-                onDelete={() =>
-                  setDeleteRoadmap(roadmap)
-                }
+                onDelete={() => setDeleteRoadmap(roadmap)}
               />
             ))}
-
           </div>
-
         </section>
-
       </div>
 
       <Footer />
@@ -313,7 +258,6 @@ export default function Home() {
         onConfirm={handleDelete}
         loading={deleteLoading}
       />
-
     </div>
   );
 }
