@@ -1,32 +1,48 @@
 import axios from "axios";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+
 export default function Login() {
   const navigate = useNavigate();
+
   const apiUrl = "/project2/api";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const submit = async (e) => {
     e.preventDefault();
+
     setLoading(true);
+    setError("");
+
     try {
       const response = await axios.post(`${apiUrl}/login`, {
-        email: email,
-        password: password,
+        email,
+        password,
       });
-      console.log(response.data);
+
+      localStorage.setItem("token", response.data.token);
+
       setEmail("");
       setPassword("");
-      localStorage.setItem("token", response.data.token);
+
       navigate("/");
     } catch (error) {
-      console.log(error.response?.data || error.message);
+      if (error.response?.status === 401) {
+        setError("Email or password is incorrect.");
+      } else if (error.response?.data?.message) {
+        setError(error.response.data.message);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
   };
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200">
@@ -37,6 +53,12 @@ export default function Login() {
         </div>
 
         <form onSubmit={submit} className="space-y-5">
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
           <div>
             <label
               htmlFor="email"
@@ -50,7 +72,10 @@ export default function Login() {
               required
               id="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+              }}
               placeholder="text@example.com"
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
             />
@@ -69,7 +94,10 @@ export default function Login() {
               required
               id="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
               placeholder="••••••••"
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
             />

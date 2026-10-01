@@ -11,32 +11,46 @@ function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [validationErrors, setValidationErrors] = useState({});
 
   const submit = async (e) => {
     e.preventDefault();
+
     setLoading(true);
+    setError("");
+    setValidationErrors({});
 
     try {
       const response = await axios.post(`${apiUrl}/register`, {
-        name: name,
-        email: email,
-        password: password,
+        name,
+        email,
+        password,
         password_confirmation: confirm,
       });
 
-      console.log(response.data);
+      localStorage.setItem("token", response.data.token);
 
       setName("");
       setEmail("");
       setPassword("");
       setConfirm("");
 
-      localStorage.setItem("token", response.data.token);
-
       navigate("/");
     } catch (error) {
-      console.log(error.response?.data || error.message);
+      const responseData = error.response?.data;
+
+      if (responseData?.errors) {
+        setValidationErrors(responseData.errors);
+      }
+
+      if (responseData?.message) {
+        setError(responseData.message);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -54,6 +68,12 @@ function Register() {
         </div>
 
         <form className="space-y-5" onSubmit={submit}>
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
           <div>
             <label
               htmlFor="name"
@@ -69,9 +89,18 @@ function Register() {
               required
               placeholder="Enter your name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError("");
+              }}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
             />
+
+            {validationErrors.name && (
+              <p className="mt-1 text-sm text-red-500">
+                {validationErrors.name[0]}
+              </p>
+            )}
           </div>
 
           <div>
@@ -89,9 +118,18 @@ function Register() {
               required
               placeholder="Enter your email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+              }}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
             />
+
+            {validationErrors.email && (
+              <p className="mt-1 text-sm text-red-500">
+                {validationErrors.email[0]}
+              </p>
+            )}
           </div>
 
           <div>
@@ -109,9 +147,18 @@ function Register() {
               required
               placeholder="Create a password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
             />
+
+            {validationErrors.password && (
+              <p className="mt-1 text-sm text-red-500">
+                {validationErrors.password[0]}
+              </p>
+            )}
           </div>
 
           <div>
@@ -129,9 +176,18 @@ function Register() {
               required
               placeholder="Confirm your password"
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              onChange={(e) => {
+                setConfirm(e.target.value);
+                setError("");
+              }}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
             />
+
+            {validationErrors.password_confirmation && (
+              <p className="mt-1 text-sm text-red-500">
+                {validationErrors.password_confirmation[0]}
+              </p>
+            )}
           </div>
 
           <button
