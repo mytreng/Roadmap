@@ -7,7 +7,7 @@ use App\Models\Step;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
-class roadmaps extends Model
+class Roadmap  extends Model
 {
     protected $fillable = [
         'title',
@@ -15,7 +15,8 @@ class roadmaps extends Model
         'start_date',
         'target_date',
     ];
-    public function user(){
+    public function user()
+    {
         return $this->belongsTo(User::class);
     }
     public function sections()
@@ -23,16 +24,16 @@ class roadmaps extends Model
         return $this->hasMany(Section::class, 'roadmap_id');
     }
     public function steps()
-{
-    return $this->hasManyThrough(
-        Step::class,
-        Section::class,
-        'roadmap_id',
-        'section_id',
-        'id',
-        'id'
-    );
-}
+    {
+        return $this->hasManyThrough(
+            Step::class,
+            Section::class,
+            'roadmap_id',
+            'section_id',
+            'id',
+            'id'
+        );
+    }
 
     public function section()
     {
