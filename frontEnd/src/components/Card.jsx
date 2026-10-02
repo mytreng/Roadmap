@@ -7,6 +7,7 @@ export default function Card({
     start_date,
     target_date,
     progress = 0,
+    days_left,
     onEdit,
     onDelete
 }) {

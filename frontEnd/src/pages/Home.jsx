@@ -225,6 +225,7 @@ export default function Home() {
                 discription={roadmap.description}
                 start_date={roadmap.start_date}
                 target_date={roadmap.target_date}
+                days_left={roadmap.days_left}
                 progress={roadmap.progress}
                 onEdit={() => {
                   setSelectedRoadmap(roadmap);
