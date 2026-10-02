@@ -36,6 +36,9 @@ export default function Card({
             <p className="mb-5 min-h-12 text-sm leading-6 text-slate-500">
                 {discription}
             </p>
+            <p className="mb-5 min-h-12 text-sm leading-6 text-slate-500">
+                {days_left}
+            </p>
 
             {/* Progress */}
             <div className="mb-5">
