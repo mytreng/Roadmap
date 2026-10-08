@@ -5,7 +5,7 @@ import { useNavigate, Link } from "react-router-dom";
 export default function Login() {
   const navigate = useNavigate();
 
-  const apiUrl = "/project2/api";
+  const apiUrl = "http://127.0.0.1:8000/api";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

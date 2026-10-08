@@ -5,7 +5,7 @@ import axios from "axios";
 function Register() {
   const navigate = useNavigate();
 
-  const apiUrl = "/project2/api";
+  const apiUrl = "http://127.0.0.1:8000/api";
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");

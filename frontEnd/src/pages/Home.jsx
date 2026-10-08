@@ -5,7 +5,7 @@ import api from "../api/axios";
 import RoadmapModal from "../components/RoadmapModal";
 import ConfirmModal from "../components/confirmModal";
 import Footer from "../components/Footer";
-
+import AIRoadmapModal from "../components/AIRoadmapModal";
 export default function Home() {
   const navigate = useNavigate();
 
@@ -24,6 +24,7 @@ export default function Home() {
 
   const [deleteRoadmap, setDeleteRoadmap] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
 
   useEffect(() => {
     const getRoadmaps = async () => {
@@ -107,6 +108,22 @@ export default function Home() {
     setShowModal(false);
     setSelectedRoadmap(null);
   };
+  const handleAIGenerated = (generatedRoadmap) => {
+  setRoadmaps((prevRoadmaps) => [
+    ...prevRoadmaps,
+    generatedRoadmap,
+  ]);
+
+  setStats((prevStats) => ({
+    ...prevStats,
+    total: prevStats.total + 1,
+    in_progress: prevStats.in_progress + 1,
+  }));
+
+  setShowAIModal(false);
+
+  navigate(`/roadmaps/${generatedRoadmap.id}`);
+};
 
   if (loading) {
     return (
@@ -196,26 +213,36 @@ export default function Home() {
 
         {/* Roadmaps */}
         <section>
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">My Roadmaps</h2>
+          <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+  <div>
+    <h2 className="text-2xl font-bold text-slate-900">
+      My Roadmaps
+    </h2>
 
-              <p className="mt-1 text-sm text-slate-500">
-                Continue your learning journey.
-              </p>
-            </div>
+    <p className="mt-1 text-sm text-slate-500">
+      Continue your learning journey.
+    </p>
+  </div>
 
-            <button
-              onClick={() => {
-                setSelectedRoadmap(null);
-                setShowModal(true);
-              }}
-              className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 sm:w-auto"
-            >
-              + New Roadmap
-            </button>
-          </div>
+  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+    <button
+      onClick={() => {
+        setSelectedRoadmap(null);
+        setShowModal(true);
+      }}
+      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+    >
+      + New Roadmap
+    </button>
 
+    <button
+      onClick={() => setShowAIModal(true)}
+      className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+    >
+      ✨ Generate with AI
+    </button>
+  </div>
+</div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {roadmaps.map((roadmap) => (
               <Card
@@ -250,6 +277,12 @@ export default function Home() {
           onSaved={handleRoadmapSaved}
         />
       )}
+      {showAIModal && (
+  <AIRoadmapModal
+    onClose={() => setShowAIModal(false)}
+    onGenerated={handleAIGenerated}
+  />
+)}
 
       <ConfirmModal
         open={deleteRoadmap !== null}
