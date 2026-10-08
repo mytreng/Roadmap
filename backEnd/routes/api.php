@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AI\RoadmapAIController;
 use App\Http\Controllers\auth\AuthController;
 use App\Http\Controllers\RoadmapsController;
 use App\Http\Controllers\SectionController;
@@ -50,4 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::delete('/roadmaps/{roadmapId}/sections/{sectionId}/steps/{stepId}', [StepController::class, 'destroy']);
 
+});
+// ai
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('generate', [RoadmapAIController::class, 'generate']);
 });

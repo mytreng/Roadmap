@@ -7,9 +7,12 @@ use App\Models\Step;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 class Roadmap  extends Model
 {
     protected $fillable = [
+        'user_id',
         'title',
         'description',
         'start_date',
