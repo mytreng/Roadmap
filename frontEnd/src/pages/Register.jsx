@@ -24,7 +24,7 @@ function Register() {
     setValidationErrors({});
 
     try {
-      const response = await axios.post(`${apiUrl}/register`, {
+      const response = api.post(`register`, {
         name,
         email,
         password,
