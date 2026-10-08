@@ -56,7 +56,7 @@ export default function AIRoadmapModal({ onClose, onGenerated }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl sm:p-8">
         <div className="mb-6">
           <div className="mb-3 inline-flex rounded-xl bg-indigo-100 px-3 py-2 text-xs font-semibold text-indigo-600">
