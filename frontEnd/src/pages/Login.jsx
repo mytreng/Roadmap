@@ -1,11 +1,9 @@
-import axios from "axios";
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import api from "../api/axios";
 
 export default function Login() {
   const navigate = useNavigate();
-
-  const apiUrl = "http://127.0.0.1:8000/api";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,7 +17,7 @@ export default function Login() {
     setError("");
 
     try {
-      const response = api.post(`login`, {
+      const response = await api.post("/login", {
         email,
         password,
       });
@@ -47,9 +45,13 @@ export default function Login() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-slate-900">Welcome Back</h1>
+          <h1 className="text-3xl font-bold text-slate-900">
+            Welcome Back
+          </h1>
 
-          <p className="mt-2 text-sm text-slate-500">Sign in to your account</p>
+          <p className="mt-2 text-sm text-slate-500">
+            Sign in to your account
+          </p>
         </div>
 
         <form onSubmit={submit} className="space-y-5">

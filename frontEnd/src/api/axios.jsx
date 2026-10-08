@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "/project2/api",
+  baseURL: "/mytr/backEnd/public/api",
 });
 
 api.interceptors.request.use((config) => {

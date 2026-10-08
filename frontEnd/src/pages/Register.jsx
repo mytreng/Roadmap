@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axios";
 
 function Register() {
   const navigate = useNavigate();
-
-  const apiUrl = "http://127.0.0.1:8000/api";
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,7 +22,7 @@ function Register() {
     setValidationErrors({});
 
     try {
-      const response = api.post(`register`, {
+      const response = await api.post("/register", {
         name,
         email,
         password,
@@ -60,7 +58,9 @@ function Register() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200">
         <div className="mb-8 text-center">
-          <h2 className="text-3xl font-bold text-slate-900">Create Account</h2>
+          <h2 className="text-3xl font-bold text-slate-900">
+            Create Account
+          </h2>
 
           <p className="mt-2 text-sm text-slate-500">
             Create your Roadmaps account
