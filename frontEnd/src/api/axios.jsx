@@ -1,7 +1,10 @@
 import axios from "axios";
 
 const api = axios.create({
+  // for server
   baseURL: "/mytr/backEnd/public/api",
+  // for local
+  //  baseURL: "http://127.0.0.1:8000/api",
 });
 
 api.interceptors.request.use((config) => {

@@ -5,11 +5,15 @@ import Home from "./pages/Home";
 import './App.css'
 import ProtectedRoute from './components/ProtectedRoute'
 import Roadmap from "./pages/Roadmap";
+import ForgotPassword from "./pages/ForgotPassword";
+import Reset from "./pages/Reset";
 function App() {
   return (
     <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword/>} />
+          <Route path="/forgot-password/reset" element={<Reset/>} />
           <Route element={<ProtectedRoute/>}>
               <Route path="/" element={<Home/>} />
               <Route path="/roadmaps/:roadmapId" element={<Roadmap/>} />

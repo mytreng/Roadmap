@@ -2,11 +2,13 @@
 
 use App\Http\Controllers\AI\RoadmapAIController;
 use App\Http\Controllers\auth\AuthController;
+use App\Http\Controllers\auth\PasswordResetController;
 use App\Http\Controllers\RoadmapsController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\StepController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
 
 
 
@@ -18,6 +20,8 @@ Route::get('/user', function (Request $request) {
 Route::post('/logout', [\App\Http\Controllers\auth\AuthController::class, 'logout'])->middleware('auth:sanctum');
 Route::post('/register', [\App\Http\Controllers\auth\AuthController::class, 'register']);
 Route::post('/login', [\App\Http\Controllers\auth\AuthController::class, 'login']);
+Route::post('/forgot-password', [PasswordResetController::class,'forgot',]);
+Route::post('/reset-password', [PasswordResetController::class,'reset',]);
 //roadmaps
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/roadmaps', [RoadmapsController::class, 'index']);

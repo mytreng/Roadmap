@@ -123,6 +123,15 @@ export default function Login() {
             Sign up
           </Link>
         </div>
+        <div className="mt-3 flex justify-center  text-right text-sm text-slate-500">
+          <Link
+            to="/forgot-password"
+            className="ml-1 font-semibold text-indigo-600 h "
+          >
+            Forgot Password ?
+          </Link>
+        </div>
+        
       </div>
     </div>
   );
