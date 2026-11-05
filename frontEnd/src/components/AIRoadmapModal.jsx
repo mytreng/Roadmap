@@ -1,5 +1,11 @@
 import { useState } from "react";
 import api from "../api/axios";
+import { parseApiError } from "../api/errors";
+import Field from "./Field";
+import Modal from "./Modal";
+
+// Generating with AI can legitimately take a while.
+const GENERATE_TIMEOUT_MS = 120000;
 
 export default function AIRoadmapModal({ onClose, onGenerated }) {
   const [form, setForm] = useState({
@@ -11,6 +17,7 @@ export default function AIRoadmapModal({ onClose, onGenerated }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -21,6 +28,7 @@ export default function AIRoadmapModal({ onClose, onGenerated }) {
       ...prev,
       [name]: value,
     }));
+    setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
   const handleSubmit = async (event) => {
@@ -29,26 +37,32 @@ export default function AIRoadmapModal({ onClose, onGenerated }) {
     try {
       setLoading(true);
       setError(null);
+      setFieldErrors({});
 
-      const response = await api.post("/generate", {
-        goal: form.goal,
-        level: form.level,
-        hours_per_day: Number(form.hours_per_day),
-        deadline: form.deadline,
-      });
+      const response = await api.post(
+        "/generate",
+        {
+          goal: form.goal,
+          level: form.level,
+          hours_per_day: Number(form.hours_per_day),
+          deadline: form.deadline,
+        },
+        { timeout: GENERATE_TIMEOUT_MS },
+      );
 
       const generatedRoadmap = response.data.roadmap;
 
       if (!generatedRoadmap) {
-        throw new Error("Invalid roadmap response.");
+        throw new Error("The AI returned an unexpected response. Please try again.");
       }
 
       onGenerated(generatedRoadmap);
-    } catch (error) {
+    } catch (err) {
+      const apiError = parseApiError(err, "Failed to generate roadmap.");
+
+      setFieldErrors(apiError.fieldErrors);
       setError(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to generate roadmap.",
+        Object.keys(apiError.fieldErrors).length ? null : apiError.message,
       );
     } finally {
       setLoading(false);
@@ -56,143 +70,111 @@ export default function AIRoadmapModal({ onClose, onGenerated }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl sm:p-8">
-        <div className="mb-6">
-          <div className="mb-3 inline-flex rounded-xl bg-indigo-100 px-3 py-2 text-xs font-semibold text-indigo-600">
-            AI Roadmap Generator
-          </div>
+    <Modal
+      onClose={onClose}
+      busy={loading}
+      maxWidth="max-w-lg"
+      title="Build Your Roadmap with AI"
+      description="Tell the AI what you want to learn, and it will create a structured roadmap for you."
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <Field
+            as="textarea"
+            id="goal"
+            name="goal"
+            label="What do you want to learn?"
+            value={form.goal}
+            error={fieldErrors.goal}
+            onChange={handleChange}
+            placeholder="e.g. Become a Backend Developer using Node.js"
+            rows={4}
+            maxLength={500}
+            required
+            disabled={loading}
+            className="resize-none"
+          />
 
-          <h2 className="text-2xl font-bold text-slate-900">
-            Build Your Roadmap with AI
-          </h2>
-
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            Tell the AI what you want to learn, and it will create a structured
-            roadmap for you.
+          <p className="mt-1 text-right text-xs text-slate-400 dark:text-slate-500">
+            {form.goal.length}/500
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label
-              htmlFor="goal"
-              className="mb-2 block text-sm font-medium text-slate-700"
-            >
-              What do you want to learn?
-            </label>
+        <Field
+          as="select"
+          id="level"
+          name="level"
+          label="Current Level"
+          value={form.level}
+          error={fieldErrors.level}
+          onChange={handleChange}
+          disabled={loading}
+        >
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+        </Field>
 
-            <textarea
-              id="goal"
-              name="goal"
-              value={form.goal}
-              onChange={handleChange}
-              placeholder="e.g. Become a Backend Developer using Node.js"
-              rows={4}
-              maxLength={500}
-              required
-              disabled={loading}
-              className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50"
-            />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field
+            id="hours_per_day"
+            name="hours_per_day"
+            label="Hours per day"
+            type="number"
+            min="1"
+            max="16"
+            value={form.hours_per_day}
+            error={fieldErrors.hours_per_day}
+            onChange={handleChange}
+            disabled={loading}
+            required
+          />
 
-            <p className="mt-1 text-right text-xs text-slate-400">
-              {form.goal.length}/500
-            </p>
+          <Field
+            id="deadline"
+            name="deadline"
+            label="Target date"
+            type="date"
+            min={today}
+            value={form.deadline}
+            error={fieldErrors.deadline}
+            onChange={handleChange}
+            disabled={loading}
+            required
+          />
+        </div>
+
+        {loading && (
+          <p
+            role="status"
+            className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400"
+          >
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600 motion-reduce:animate-none dark:border-slate-600 dark:border-t-indigo-400" />
+            Crafting your roadmap, this can take up to a minute...
+          </p>
+        )}
+
+        {error && (
+          <div role="alert" className="alert-error">
+            {error}
           </div>
+        )}
 
-          <div>
-            <label
-              htmlFor="level"
-              className="mb-2 block text-sm font-medium text-slate-700"
-            >
-              Current Level
-            </label>
+        <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="btn-secondary"
+          >
+            Cancel
+          </button>
 
-            <select
-              id="level"
-              name="level"
-              value={form.level}
-              onChange={handleChange}
-              disabled={loading}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50"
-            >
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="hours_per_day"
-                className="mb-2 block text-sm font-medium text-slate-700"
-              >
-                Hours per day
-              </label>
-
-              <input
-                id="hours_per_day"
-                name="hours_per_day"
-                type="number"
-                min="1"
-                max="16"
-                value={form.hours_per_day}
-                onChange={handleChange}
-                disabled={loading}
-                required
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="deadline"
-                className="mb-2 block text-sm font-medium text-slate-700"
-              >
-                Target date
-              </label>
-
-              <input
-                id="deadline"
-                name="deadline"
-                type="date"
-                min={today}
-                value={form.deadline}
-                onChange={handleChange}
-                disabled={loading}
-                required
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50"
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
-
-          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? "Generating..." : "Generate Roadmap"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <button type="submit" disabled={loading} className="btn-primary">
+            {loading ? "Generating..." : "Generate Roadmap"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

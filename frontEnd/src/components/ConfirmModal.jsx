@@ -1,47 +1,63 @@
+import Modal from "./Modal";
+import HoldButton from "./HoldButton";
+
 export default function ConfirmModal({
-    open,
-    title,
-    message,
-    onConfirm,
-    onCancel,
-    loading
+  open,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  loading = false,
+  confirmLabel = "Delete",
+  loadingLabel = "Deleting...",
+  variant = "danger", // "danger" | "primary"
+  hold = false, // require press-and-hold to confirm
 }) {
-    if (!open) {
-        return null;
-    }
+  if (!open) {
+    return null;
+  }
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+  const buttonClass = variant === "danger" ? "btn-danger" : "btn-primary";
 
-                <h2 className="text-xl font-bold text-slate-900">
-                    {title}
-                </h2>
+  return (
+    <Modal onClose={onCancel} title={title} busy={loading}>
+      <p className="-mt-2 text-sm text-slate-500 dark:text-slate-400">
+        {message}
+      </p>
 
-                <p className="mt-2 text-sm text-slate-500">
-                    {message}
-                </p>
+      {hold && (
+        <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+          Press and hold the button to confirm.
+        </p>
+      )}
 
-                <div className="mt-6 flex justify-end gap-3">
+      <div className="mt-6 flex justify-end gap-3">
+        <button
+          onClick={onCancel}
+          disabled={loading}
+          className="btn-secondary"
+        >
+          Cancel
+        </button>
 
-                    <button
-                        onClick={onCancel}
-                        disabled={loading}
-                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                    >
-                        Cancel
-                    </button>
-
-                    <button
-                        onClick={onConfirm}
-                        disabled={loading}
-                        className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-                    >
-                        {loading ? "Deleting..." : "Delete"}
-                    </button>
-
-                </div>
-            </div>
-        </div>
-    );
+        {hold ? (
+          <HoldButton
+            onComplete={onConfirm}
+            disabled={loading}
+            className={buttonClass}
+          >
+            {confirmLabel}
+          </HoldButton>
+        ) : (
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className={buttonClass}
+          >
+            {loading ? loadingLabel : confirmLabel}
+          </button>
+        )}
+      </div>
+    </Modal>
+  );
 }

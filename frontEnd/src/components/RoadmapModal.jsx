@@ -1,195 +1,129 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import api from "../api/axios";
+import { parseApiError } from "../api/errors";
+import Field from "./Field";
+import Modal from "./Modal";
 
 export default function RoadmapModal({ onClose, roadmap, onSaved }) {
-    const [title, setTitle] = useState("");
-    const [description, setDescription] = useState("");
-    const [startDate, setStartDate] = useState("");
-    const [targetDate, setTargetDate] = useState("");
-    const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
+  const [title, setTitle] = useState(roadmap?.title ?? "");
+  const [description, setDescription] = useState(roadmap?.description ?? "");
+  const [startDate, setStartDate] = useState(roadmap?.start_date || "");
+  const [targetDate, setTargetDate] = useState(roadmap?.target_date || "");
+  const [fieldErrors, setFieldErrors] = useState({});
 
-    useEffect(() => {
-        if (roadmap) {
-            setTitle(roadmap.title);
-            setDescription(roadmap.description);
-            setStartDate(roadmap.start_date || "");
-            setTargetDate(roadmap.target_date || "");
-        } else {
-            setTitle("");
-            setDescription("");
-            setStartDate("");
-            setTargetDate("");
-        }
-    }, [roadmap]);
+  const mutation = useMutation({
+    mutationFn: async (data) => {
+      const response = roadmap
+        ? await api.put(`/roadmaps/${roadmap.id}`, data)
+        : await api.post("/roadmaps", data);
 
-    async function submit(e) {
-        e.preventDefault();
+      return response.data.roadmap || response.data;
+    },
+    onSuccess: (saved) => onSaved(saved, Boolean(roadmap)),
+    onError: (error) => {
+      setFieldErrors(parseApiError(error).fieldErrors);
+    },
+  });
 
-        setLoading(true);
-        setError("");
+  const loading = mutation.isPending;
+  const apiError = mutation.error
+    ? parseApiError(mutation.error, "Failed to save roadmap.")
+    : null;
+  // Field-level problems are shown under the inputs, the rest in a banner.
+  const bannerError =
+    apiError && Object.keys(apiError.fieldErrors).length === 0
+      ? apiError.message
+      : "";
 
-        try {
-            const data = {
-                title: title,
-                description: description,
-                start_date: startDate || null,
-                target_date: targetDate || null,
-            };
+  const bind = (field, setter) => ({
+    onChange: (e) => {
+      setter(e.target.value);
+      setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+    },
+    error: fieldErrors[field],
+  });
 
-            let response;
+  function submit(e) {
+    e.preventDefault();
+    setFieldErrors({});
 
-            if (roadmap) {
-                response = await api.put(
-                    `/roadmaps/${roadmap.id}`,
-                    data
-                );
-            } else {
-                response = await api.post(
-                    "/roadmaps",
-                    data
-                );
-            }
+    mutation.mutate({
+      title,
+      description,
+      start_date: startDate || null,
+      target_date: targetDate || null,
+    });
+  }
 
-            const savedRoadmap =
-                response.data.roadmap || response.data;
-
-            onSaved(savedRoadmap);
-
-        } catch (error) {
-            setError(
-                error.response?.data?.message ||
-                "Failed to save roadmap."
-            );
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-
-                <div className="mb-6 flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-900">
-                            {roadmap
-                                ? "Edit Roadmap"
-                                : "Create New Roadmap"}
-                        </h2>
-
-                        <p className="mt-1 text-sm text-slate-500">
-                            Create a roadmap for your learning journey.
-                        </p>
-                    </div>
-
-                    <button
-                        onClick={onClose}
-                        className="text-xl text-slate-400 hover:text-slate-600"
-                    >
-                        ×
-                    </button>
-                </div>
-
-                {error && (
-                    <div className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">
-                        {error}
-                    </div>
-                )}
-
-                <form
-                    className="space-y-4"
-                    onSubmit={submit}
-                >
-                    <div>
-                        <label className="mb-1 block text-sm font-medium text-slate-700">
-                            Title
-                        </label>
-
-                        <input
-                            type="text"
-                            placeholder="e.g. Backend Development"
-                            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                            value={title}
-                            onChange={(e) =>
-                                setTitle(e.target.value)
-                            }
-                        />
-                    </div>
-
-                    <div>
-                        <label className="mb-1 block text-sm font-medium text-slate-700">
-                            Description
-                        </label>
-
-                        <textarea
-                            rows="3"
-                            placeholder="Describe your roadmap..."
-                            className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                            value={description}
-                            onChange={(e) =>
-                                setDescription(e.target.value)
-                            }
-                        />
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label className="mb-1 block text-sm font-medium text-slate-700">
-                                Start Date
-                            </label>
-
-                            <input
-                                type="date"
-                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                value={startDate}
-                                onChange={(e) =>
-                                    setStartDate(e.target.value)
-                                }
-                            />
-                        </div>
-
-                        <div>
-                            <label className="mb-1 block text-sm font-medium text-slate-700">
-                                Target Date
-                            </label>
-
-                            <input
-                                type="date"
-                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                value={targetDate}
-                                onChange={(e) =>
-                                    setTargetDate(e.target.value)
-                                }
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={loading}
-                            className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                        >
-                            Cancel
-                        </button>
-
-                        <button
-                            type="submit"
-                            className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
-                            disabled={loading}
-                        >
-                            {loading
-                                ? "Loading..."
-                                : roadmap
-                                ? "Save Changes"
-                                : "Create Roadmap"}
-                        </button>
-                    </div>
-                </form>
-
-            </div>
+  return (
+    <Modal
+      onClose={onClose}
+      busy={loading}
+      maxWidth="max-w-lg"
+      title={roadmap ? "Edit Roadmap" : "Create New Roadmap"}
+      description="Create a roadmap for your learning journey."
+    >
+      {bannerError && (
+        <div role="alert" className="alert-error mb-4">
+          {bannerError}
         </div>
-    );
+      )}
+
+      <form className="space-y-4" onSubmit={submit}>
+        <Field
+          label="Title"
+          type="text"
+          placeholder="e.g. Backend Development"
+          value={title}
+          {...bind("title", setTitle)}
+        />
+
+        <Field
+          as="textarea"
+          label="Description"
+          rows="3"
+          placeholder="Describe your roadmap..."
+          className="resize-none"
+          value={description}
+          {...bind("description", setDescription)}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Start Date"
+            type="date"
+            value={startDate}
+            {...bind("start_date", setStartDate)}
+          />
+
+          <Field
+            label="Target Date"
+            type="date"
+            value={targetDate}
+            {...bind("target_date", setTargetDate)}
+          />
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="btn-secondary"
+          >
+            Cancel
+          </button>
+
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading
+              ? "Saving..."
+              : roadmap
+                ? "Save Changes"
+                : "Create Roadmap"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
 }

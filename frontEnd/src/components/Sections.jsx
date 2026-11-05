@@ -1,348 +1,371 @@
 import SectionCard from "./SectionCard";
-import ConfirmModal from "./confirmModal";
-import { useEffect, useState } from "react";
+import ConfirmModal from "./ConfirmModal";
+import ErrorState from "./ErrorState";
+import Field from "./Field";
+import Modal from "./Modal";
+import Confetti from "./Confetti";
+import { SectionSkeleton } from "./Skeleton";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import api from "../api/axios";
+import { parseApiError } from "../api/errors";
+import { useToast } from "../context/ToastContext";
+import { roadmapsKey, sectionsKey, useSections } from "../hooks/queries";
+import {
+  useReorderSections,
+  useSaveSection,
+} from "../hooks/useSectionMutations";
+import { useUndoableDelete } from "../hooks/useUndoableDelete";
+import { crossedMilestone, roadmapProgress } from "../lib/progress";
 
 export default function Sections({ roadmapId }) {
-    const [sections, setSections] = useState([]);
-    const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
+  const toast = useToast();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const undoableDelete = useUndoableDelete();
 
-    const [showModal, setShowModal] = useState(false);
+  const sectionsQuery = useSections(roadmapId);
+  const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data]);
+  const loading = sectionsQuery.isPending;
+  const loadError = sectionsQuery.error
+    ? parseApiError(sectionsQuery.error, "Failed to load sections.")
+    : null;
 
-    const [title, setTitle] = useState("");
-    const [order, setOrder] = useState("");
+  const saveSection = useSaveSection(roadmapId);
+  const reorderSections = useReorderSections(roadmapId);
 
-    const [editingSection, setEditingSection] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingSection, setEditingSection] = useState(null);
+  const [title, setTitle] = useState("");
+  const [order, setOrder] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [celebrate, setCelebrate] = useState(false);
 
-    const [createLoading, setCreateLoading] = useState(false);
+  const overall = useMemo(() => roadmapProgress(sections), [sections]);
 
-    const [deleteSection, setDeleteSection] = useState(null);
-    const [deleteLoading, setDeleteLoading] = useState(false);
+  /* ------------------------- milestones & celebration ------------------------ */
 
-    const navigate = useNavigate();
+  const handleProgress = useCallback(
+    (before, after) => {
+      const milestone = crossedMilestone(before, after);
+      if (!milestone) return;
 
-    useEffect(() => {
-        const getSections = async () => {
-            try {
-                setLoading(true);
-                setError("");
+      toast.milestone(milestone.message);
+      if (milestone.at === 100) setCelebrate(true);
+    },
+    [toast],
+  );
 
-                const response = await api.get(
-                    `/roadmaps/${roadmapId}/sections`
-                );
+  const stopCelebrating = useCallback(() => setCelebrate(false), []);
 
-                setSections(
-                    response.data.sections ||
-                        response.data.section ||
-                        []
-                );
-            } catch (error) {
-                setError(
-                    error.response?.data?.message ||
-                        "Failed to load sections."
-                );
-            } finally {
-                setLoading(false);
-            }
-        };
+  /* ------------------------------ drag & drop ------------------------------- */
 
-        if (roadmapId) {
-            getSections();
-        }
-    }, [roadmapId]);
+  const sensors = useSensors(
+    // `distance` stops a simple click from being treated as a drag.
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
-    const handleEdit = (section) => {
-        setEditingSection(section);
+  const handleDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
 
-        setTitle(section.title);
-        setOrder(section.order);
+    const from = sections.findIndex((section) => section.id === active.id);
+    const to = sections.findIndex((section) => section.id === over.id);
 
-        setError("");
-        setShowModal(true);
-    };
+    reorderSections.mutate({
+      ordered: arrayMove(sections, from, to),
+      previous: sections,
+    });
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+  /* ------------------------------ create / edit ------------------------------ */
 
-        try {
-            setCreateLoading(true);
-            setError("");
+  const openCreate = () => {
+    setEditingSection(null);
+    setTitle("");
+    // Suggest the next free position.
+    setOrder(String(sections.length + 1));
+    setFieldErrors({});
+    saveSection.reset();
+    setShowModal(true);
+  };
 
-            if (editingSection) {
-                const response = await api.put(
-                    `/roadmaps/${roadmapId}/sections/${editingSection.id}`,
-                    {
-                        title: title,
-                        order: order,
-                    }
-                );
+  const handleEdit = (section) => {
+    setEditingSection(section);
+    setTitle(section.title);
+    setOrder(section.order ?? "");
+    setFieldErrors({});
+    saveSection.reset();
+    setShowModal(true);
+  };
 
-                const updatedSection =
-                    response.data.section ||
-                    response.data.sections ||
-                    response.data;
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingSection(null);
+    setTitle("");
+    setOrder("");
+    setFieldErrors({});
+  };
 
-                setSections((prevSections) =>
-                    prevSections.map((section) =>
-                        section.id === editingSection.id
-                            ? {
-                                  ...section,
-                                  ...updatedSection,
-                                  title: title,
-                                  order: order,
-                              }
-                            : section
-                    )
-                );
-            } else {
-                const response = await api.post(
-                    `/roadmaps/${roadmapId}/sections`,
-                    {
-                        title: title,
-                        order: order,
-                    }
-                );
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setFieldErrors({});
 
-                const newSection =
-                    response.data.section ||
-                    response.data.sections ||
-                    response.data;
+    saveSection.mutate(
+      { id: editingSection?.id, title, order },
+      {
+        onSuccess: () => {
+          toast.success(editingSection ? "Section updated." : "Section added.");
+          closeModal();
+        },
+        onError: (error) => setFieldErrors(parseApiError(error).fieldErrors),
+      },
+    );
+  };
 
-                setSections((prevSections) =>
-                    [...prevSections, newSection].sort(
-                        (a, b) =>
-                            Number(a.order) - Number(b.order)
-                    )
-                );
-            }
+  const saveError = saveSection.error
+    ? parseApiError(saveSection.error, "Failed to save section.")
+    : null;
+  const formError =
+    saveError && Object.keys(saveError.fieldErrors).length === 0
+      ? saveError.message
+      : "";
 
-            closeModal();
-        } catch (error) {
-            setError(
-                error.response?.data?.message ||
-                    "Failed to save section."
-            );
-        } finally {
-            setCreateLoading(false);
-        }
-    };
+  /* --------------------------------- delete --------------------------------- */
 
-    const handleDelete = async () => {
-        if (!deleteSection) return;
+  const handleDelete = () => {
+    const target = deleteTarget;
+    setDeleteTarget(null);
 
-        try {
-            setDeleteLoading(true);
-            setError("");
+    undoableDelete({
+      key: `section:${target.id}`,
+      queryKey: sectionsKey(roadmapId),
+      message: `Section "${target.title}" deleted.`,
+      errorMessage: "Failed to delete section.",
+      removeFromCache: () =>
+        queryClient.setQueryData(sectionsKey(roadmapId), (old) =>
+          old?.filter((section) => section.id !== target.id),
+        ),
+      commit: () => api.delete(`/roadmaps/${roadmapId}/sections/${target.id}`),
+      afterCommit: () =>
+        queryClient.invalidateQueries({ queryKey: roadmapsKey }),
+    });
+  };
 
-            await api.delete(
-                `/roadmaps/${roadmapId}/sections/${deleteSection.id}`
-            );
+  return (
+    <div className="mt-6 sm:mt-8">
+      {celebrate && <Confetti onDone={stopCelebrating} />}
 
-            setSections((prevSections) =>
-                prevSections.filter(
-                    (section) =>
-                        section.id !== deleteSection.id
-                )
-            );
+      <div className="mb-5">
+        <button
+          onClick={() => navigate("/")}
+          className="btn-secondary shadow-sm hover:-translate-x-0.5"
+        >
+          <span className="text-lg">←</span>
+          <span>Back to Roadmaps</span>
+        </button>
+      </div>
 
-            setDeleteSection(null);
-        } catch (error) {
-            setError(
-                error.response?.data?.message ||
-                    "Failed to delete section."
-            );
-        } finally {
-            setDeleteLoading(false);
-        }
-    };
+      {!loading && !loadError && overall.total > 0 && (
+        <div className="surface mb-6 animate-fade-in p-4 sm:p-5">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="font-medium text-slate-700 dark:text-slate-200">
+              Overall progress
+            </span>
+            <span className="font-bold text-indigo-600 dark:text-indigo-400">
+              {overall.percent}%
+              <span className="ml-2 font-normal text-slate-400 dark:text-slate-500">
+                ({overall.done}/{overall.total} steps)
+              </span>
+            </span>
+          </div>
 
-    const closeModal = () => {
-        setShowModal(false);
-        setEditingSection(null);
-        setTitle("");
-        setOrder("");
-    };
+          <div
+            role="progressbar"
+            aria-valuenow={overall.percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Overall roadmap progress"
+            className="h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
+          >
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                overall.percent === 100
+                  ? "bg-green-500"
+                  : "bg-indigo-600 dark:bg-indigo-500"
+              }`}
+              style={{ width: `${overall.percent}%` }}
+            />
+          </div>
+        </div>
+      )}
 
-    return (
-        <div className="mt-6 sm:mt-8">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-slate-100">
+            Sections
+          </h2>
 
-            <div className="mb-5">
-                <button
-                    onClick={() => navigate("/")}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition hover:-translate-x-0.5 hover:bg-slate-50 hover:text-slate-900"
-                >
-                    <span className="text-lg">←</span>
-                    <span>Back to Roadmaps</span>
-                </button>
-            </div>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Click a step when you complete it. Drag the ⠿ handle to reorder.
+          </p>
 
-            {error && (
-                <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">
-                    {error}
-                </div>
-            )}
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            Progress is built one step at a time.
+          </p>
+        </div>
 
-            {loading && (
-                <div className="mb-4 rounded-xl bg-white p-4 text-center">
-                    <p className="text-sm text-slate-400">
-                        Loading sections...
-                    </p>
-                </div>
-            )}
+        <button
+          onClick={openCreate}
+          disabled={loading || loadError !== null}
+          className="btn-primary w-full px-5 py-3 sm:w-auto"
+        >
+          + Add Section
+        </button>
+      </div>
 
-            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      {loading ? (
+        <div role="status" aria-label="Loading sections" className="space-y-4">
+          {Array.from({ length: 3 }, (_, index) => (
+            <SectionSkeleton key={index} />
+          ))}
+        </div>
+      ) : loadError ? (
+        <ErrorState error={loadError} onRetry={() => sectionsQuery.refetch()} />
+      ) : sections.length === 0 ? (
+        <div className="animate-fade-in mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center dark:border-slate-700 dark:bg-slate-900">
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-300">
+            No sections yet.
+          </p>
 
-                <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                        Sections
-                    </h2>
-
-                    <p className="mt-1 text-sm text-slate-500">
-                        Click a step when you complete it.
-                    </p>
-
-                    <p className="mt-1 text-xs text-slate-400">
-                        Progress is built one step at a time.
-                    </p>
-                </div>
-
-                <button
-                    onClick={() => {
-                        setEditingSection(null);
-                        setTitle("");
-                        setOrder("");
-                        setError("");
-                        setShowModal(true);
-                    }}
-                    className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 sm:w-auto"
-                >
-                    + Add Section
-                </button>
-
-            </div>
-
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            Start building your roadmap today.
+          </p>
+        </div>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={sections.map((section) => section.id)}
+            strategy={verticalListSortingStrategy}
+          >
             <div className="space-y-4">
-                {sections.map((section) => (
-                    <SectionCard
-                        key={section.id}
-                        id={section.id}
-                        roadmapId={roadmapId}
-                        title={section.title}
-                        order={section.order}
-                        steps={section.steps}
-                        onEdit={() => handleEdit(section)}
-                        onDelete={() =>
-                            setDeleteSection(section)
-                        }
-                    />
-                ))}
+              {sections.map((section) => (
+                <SectionCard
+                  key={section.id}
+                  id={section.id}
+                  roadmapId={roadmapId}
+                  title={section.title}
+                  order={section.order}
+                  steps={section.steps}
+                  onProgress={handleProgress}
+                  onEdit={() => handleEdit(section)}
+                  onDelete={() => setDeleteTarget(section)}
+                />
+              ))}
             </div>
+          </SortableContext>
+        </DndContext>
+      )}
 
-            {sections.length === 0 && !loading && (
-                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center">
-                    <p className="text-sm font-medium text-slate-500">
-                        No sections yet.
-                    </p>
-
-                    <p className="mt-1 text-xs text-slate-400">
-                        Start building your roadmap today.
-                    </p>
-                </div>
+      {showModal && (
+        <Modal
+          onClose={closeModal}
+          busy={saveSection.isPending}
+          title={editingSection ? "Edit Section" : "Add Section"}
+          description={
+            editingSection
+              ? "Update your section"
+              : "Create a new section for this roadmap"
+          }
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && (
+              <div role="alert" className="alert-error">
+                {formError}
+              </div>
             )}
 
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-                    <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl sm:p-6">
-
-                        <div className="mb-6">
-                            <h2 className="text-xl font-bold text-slate-900">
-                                {editingSection
-                                    ? "Edit Section"
-                                    : "Add Section"}
-                            </h2>
-
-                            <p className="mt-1 text-sm text-slate-500">
-                                {editingSection
-                                    ? "Update your section"
-                                    : "Create a new section for this roadmap"}
-                            </p>
-                        </div>
-
-                        <form onSubmit={handleSubmit}>
-
-                            <div className="mb-4">
-                                <label className="mb-2 block text-sm font-medium text-slate-700">
-                                    Title
-                                </label>
-
-                                <input
-                                    type="text"
-                                    value={title}
-                                    onChange={(e) =>
-                                        setTitle(e.target.value)
-                                    }
-                                    placeholder="e.g. Backend"
-                                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                />
-                            </div>
-
-                            <div className="mb-6">
-                                <label className="mb-2 block text-sm font-medium text-slate-700">
-                                    Order
-                                </label>
-
-                                <input
-                                    type="number"
-                                    value={order}
-                                    onChange={(e) =>
-                                        setOrder(e.target.value)
-                                    }
-                                    placeholder="e.g. 1"
-                                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                />
-                            </div>
-
-                            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-
-                                <button
-                                    type="button"
-                                    onClick={closeModal}
-                                    disabled={createLoading}
-                                    className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                                >
-                                    Cancel
-                                </button>
-
-                                <button
-                                    type="submit"
-                                    disabled={createLoading}
-                                    className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
-                                >
-                                    {createLoading
-                                        ? "Saving..."
-                                        : editingSection
-                                        ? "Save Changes"
-                                        : "Create Section"}
-                                </button>
-
-                            </div>
-
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            <ConfirmModal
-                open={deleteSection !== null}
-                title="Delete Section?"
-                message={`Are you sure you want to delete "${deleteSection?.title}"?`}
-                onCancel={() => setDeleteSection(null)}
-                onConfirm={handleDelete}
-                loading={deleteLoading}
+            <Field
+              label="Title"
+              type="text"
+              value={title}
+              error={fieldErrors.title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setFieldErrors((prev) => ({ ...prev, title: undefined }));
+              }}
+              placeholder="e.g. Backend"
             />
 
-        </div>
-    );
+            <Field
+              label="Order"
+              type="number"
+              min="1"
+              value={order}
+              error={fieldErrors.order}
+              onChange={(e) => {
+                setOrder(e.target.value);
+                setFieldErrors((prev) => ({ ...prev, order: undefined }));
+              }}
+              placeholder="e.g. 1"
+            />
+
+            <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end sm:gap-3">
+              <button
+                type="button"
+                onClick={closeModal}
+                disabled={saveSection.isPending}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={saveSection.isPending}
+                className="btn-primary"
+              >
+                {saveSection.isPending
+                  ? "Saving..."
+                  : editingSection
+                    ? "Save Changes"
+                    : "Create Section"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      <ConfirmModal
+        open={deleteTarget !== null}
+        hold
+        title="Delete Section?"
+        message={`"${deleteTarget?.title}" and its steps will be removed. You'll have a few seconds to undo.`}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+      />
+    </div>
+  );
 }

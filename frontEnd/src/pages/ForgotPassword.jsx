@@ -1,12 +1,17 @@
-
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../api/axios";
+import { parseApiError } from "../api/errors";
+import Field from "../components/Field";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export default function ForgotPassword() {
+  useDocumentTitle("Forgot password");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -14,6 +19,7 @@ export default function ForgotPassword() {
     setLoading(true);
     setMessage("");
     setError("");
+    setFieldErrors({});
 
     try {
       const response = await api.post("/forgot-password", {
@@ -22,9 +28,11 @@ export default function ForgotPassword() {
 
       setMessage(response.data.message);
     } catch (err) {
+      const apiError = parseApiError(err);
+
+      setFieldErrors(apiError.fieldErrors);
       setError(
-        err.response?.data?.message ||
-          "Something went wrong. Please try again."
+        Object.keys(apiError.fieldErrors).length ? "" : apiError.message,
       );
     } finally {
       setLoading(false);
@@ -32,58 +40,62 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200">
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="surface w-full max-w-md p-8 shadow-lg dark:shadow-none">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
             Forgot Password
           </h1>
 
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             Enter your email and we'll send you a password reset link.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-2 block text-sm font-medium text-slate-700"
-            >
-              Email
-            </label>
-
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="text@example.com"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-            />
-          </div>
+          <Field
+            label="Email"
+            type="email"
+            value={email}
+            error={fieldErrors.email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setFieldErrors({});
+            }}
+            required
+            autoComplete="email"
+            placeholder="text@example.com"
+          />
 
           {message && (
-            <p className="text-center text-sm text-green-600">
+            <div role="status" className="alert-success">
               {message}
-            </p>
+            </div>
           )}
 
           {error && (
-            <p className="text-center text-sm text-red-600">
+            <div role="alert" className="alert-error">
               {error}
-            </p>
+            </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-primary w-full py-3"
           >
             {loading ? "Sending..." : "Send Reset Link"}
           </button>
         </form>
+
+        <div className="mt-5 text-center text-sm text-slate-500 dark:text-slate-400">
+          <Link
+            to="/login"
+            className="font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+          >
+            ← Back to login
+          </Link>
+        </div>
       </div>
     </div>
   );

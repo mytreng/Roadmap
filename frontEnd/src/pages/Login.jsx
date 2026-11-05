@@ -1,20 +1,38 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import api from "../api/axios";
+import { startSession } from "../lib/auth";
+import { parseApiError } from "../api/errors";
+import Field from "../components/Field";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export default function Login() {
+  useDocumentTitle("Sign in");
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  // e.g. "Password reset successfully" passed from the reset page.
+  const notice = location.state?.message;
+
+  const clearError = (field) => {
+    setError("");
+    setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
 
   const submit = async (e) => {
     e.preventDefault();
 
     setLoading(true);
     setError("");
+    setFieldErrors({});
 
     try {
       const response = await api.post("/login", {
@@ -22,19 +40,17 @@ export default function Login() {
         password,
       });
 
-      localStorage.setItem("token", response.data.token);
+      startSession(queryClient, response.data);
 
-      setEmail("");
-      setPassword("");
+      navigate("/", { replace: true });
+    } catch (err) {
+      const apiError = parseApiError(err);
 
-      navigate("/");
-    } catch (error) {
-      if (error.response?.status === 401) {
+      if (apiError.status === 401) {
         setError("Email or password is incorrect.");
-      } else if (error.response?.data?.message) {
-        setError(error.response.data.message);
       } else {
-        setError("Something went wrong. Please try again.");
+        setFieldErrors(apiError.fieldErrors);
+        setError(apiError.message);
       }
     } finally {
       setLoading(false);
@@ -42,96 +58,82 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200">
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="surface w-full max-w-md p-8 shadow-lg dark:shadow-none">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
             Welcome Back
           </h1>
 
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             Sign in to your account
           </p>
         </div>
 
         <form onSubmit={submit} className="space-y-5">
+          {notice && !error && <div className="alert-success">{notice}</div>}
+
           {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div role="alert" className="alert-error">
               {error}
             </div>
           )}
 
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-2 block text-sm font-medium text-slate-700"
-            >
-              Email
-            </label>
+          <Field
+            label="Email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            error={fieldErrors.email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              clearError("email");
+            }}
+            placeholder="text@example.com"
+          />
 
-            <input
-              type="email"
-              required
-              id="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setError("");
-              }}
-              placeholder="text@example.com"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="password"
-              className="mb-2 block text-sm font-medium text-slate-700"
-            >
-              Password
-            </label>
-
-            <input
-              type="password"
-              required
-              id="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              placeholder="••••••••"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-            />
-          </div>
+          <Field
+            label="Password"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            error={fieldErrors.password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              clearError("password");
+            }}
+            placeholder="••••••••"
+          />
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-primary w-full py-3"
           >
-            {loading ? "Loading..." : "Sign In"}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-slate-500">
+        <div className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
           Don't have an account?
           <Link
             to="/register"
-            className="ml-1 font-semibold text-indigo-600 hover:text-indigo-700"
+            className="ml-1 font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
           >
             Sign up
           </Link>
         </div>
-        <div className="mt-3 flex justify-center  text-right text-sm text-slate-500">
+
+        <div className="mt-3 text-center text-sm">
           <Link
             to="/forgot-password"
-            className="ml-1 font-semibold text-indigo-600 h "
+            className="font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
           >
             Forgot Password ?
           </Link>
         </div>
-        
       </div>
     </div>
   );
